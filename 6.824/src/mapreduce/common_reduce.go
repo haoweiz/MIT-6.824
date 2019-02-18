@@ -1,5 +1,12 @@
 package mapreduce
 
+import(
+	"encoding/json"
+	"fmt"
+	"os"
+	"log"
+)
+
 // doReduce manages one reduce task: it reads the intermediate
 // key/value pairs (produced by the map phase) for this task, sorts the
 // intermediate key/value pairs by key, calls the user-defined reduce function
@@ -43,4 +50,32 @@ func doReduce(
 	// }
 	// file.Close()
 	//
+
+	// Read all mrtmp.xxx-m-reduceTaskNumber and write to outFile
+	var names []string
+	file, err := os.Create(outFile)
+	if err != nil {
+		log.Fatal("doReduce Create: ", err)
+	}
+	enc := json.NewEncoder(file)
+	defer file.Close()
+
+	// Read all contents from mrtmp.xxx-m-reduceTaskNumber
+	for m := 0; m != nMap; m++ {
+		names = append(names,  fmt.Sprintf("mrtmp.test-%d-%d", m, reduceTaskNumber))
+		fi, err := os.Open(names[m])
+		if err != nil {
+			log.Fatal("doReduce Open: ", err)
+		}
+		dec := json.NewDecoder(fi)
+		for {
+			var kv KeyValue
+			err = dec.Decode(&kv)
+			if err != nil {
+				break
+			}
+			enc.Encode(kv)
+		}
+		fi.Close()
+	}
 }

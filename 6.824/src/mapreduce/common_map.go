@@ -1,8 +1,27 @@
 package mapreduce
 
 import (
+	"io"
+	"bufio"
+	"log"
+	"os"
+	"fmt"
 	"hash/fnv"
+	"encoding/json"
 )
+
+// Get the start and end index of Number if we divide Total keyvalue into nReduce parts
+func getStartEnd(Number, nReduce, Total int) (start, end int) {
+	part := Total/nReduce
+	if Number == nReduce-1 {
+		start = Number*part
+		end = Total
+	} else {
+		start = Number*part
+		end = (Number+1)*part
+	}
+	return
+}
 
 // doMap manages one map task: it reads one of the input files
 // (inFile), calls the user-defined map function (mapF) for that file's
@@ -53,6 +72,41 @@ func doMap(
 	//
 	// Remember to close the file after you have written all the values!
 	//
+	
+	// Read from inFile and save all keys and values in keyvalue 
+	var keyvalue []KeyValue
+	fi, err := os.Open(inFile)
+	if err != nil {
+		log.Fatal("doMap Open: ", err)
+	}
+	defer fi.Close()
+	br := bufio.NewReader(fi)
+	for {
+		a, _, c := br.ReadLine()
+		if c == io.EOF {
+			break
+		}
+		kv := mapF(inFile, string(a))
+		for i := 0; i != len(kv); i++ {
+			keyvalue = append(keyvalue, kv[i])
+		}
+	}
+
+	// Divide keyvalue into nReduce parts and save them in nReduce files
+	var names []string
+	for r := 0; r != nReduce; r++ {
+		names = append(names, fmt.Sprintf("mrtmp.test-%d-%d", mapTaskNumber, r))
+		file, err := os.Create(names[r])
+		if err != nil {
+			log.Fatal("doMap Create: ", err)
+		}
+		start, end := getStartEnd(r, nReduce, len(keyvalue))
+		enc := json.NewEncoder(file)
+		for _, kv := range keyvalue[start:end] {
+			enc.Encode(kv)
+		}
+		file.Close()
+	}
 }
 
 func ihash(s string) int {
