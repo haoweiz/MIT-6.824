@@ -62,7 +62,7 @@ func doReduce(
 
 	// Read all contents from mrtmp.xxx-m-reduceTaskNumber
 	for m := 0; m != nMap; m++ {
-		names = append(names,  fmt.Sprintf("mrtmp.test-%d-%d", m, reduceTaskNumber))
+		names = append(names,  fmt.Sprintf("mrtmp.%s-%d-%d", jobName, m, reduceTaskNumber))
 		fi, err := os.Open(names[m])
 		if err != nil {
 			log.Fatal("doReduce Open: ", err)
