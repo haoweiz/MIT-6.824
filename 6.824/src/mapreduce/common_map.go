@@ -10,18 +10,6 @@ import (
 	"encoding/json"
 )
 
-// Get the start and end index of Number if we divide Total keyvalue into nReduce parts
-func getStartEnd(Number, nReduce, Total int) (start, end int) {
-	part := Total/nReduce
-	if Number == nReduce-1 {
-		start = Number*part
-		end = Total
-	} else {
-		start = Number*part
-		end = (Number+1)*part
-	}
-	return
-}
 
 // doMap manages one map task: it reads one of the input files
 // (inFile), calls the user-defined map function (mapF) for that file's
@@ -92,20 +80,29 @@ func doMap(
 		}
 	}
 
-	// Divide keyvalue into nReduce parts and save them in nReduce files
+	// Create nReduce files and create encoder for each of them
 	var names []string
+	files := make([]*os.File, 0, nReduce)
+	enc := make([]*json.Encoder, 0, nReduce)
 	for r := 0; r != nReduce; r++ {
-		names = append(names, fmt.Sprintf("mrtmp.test-%d-%d", mapTaskNumber, r))
+		names = append(names, fmt.Sprintf("mrtmp.%s-%d-%d", jobName, mapTaskNumber, r))
 		file, err := os.Create(names[r])
 		if err != nil {
 			log.Fatal("doMap Create: ", err)
 		}
-		start, end := getStartEnd(r, nReduce, len(keyvalue))
-		enc := json.NewEncoder(file)
-		for _, kv := range keyvalue[start:end] {
-			enc.Encode(kv)
-		}
-		file.Close()
+		files = append(files, file)
+		enc = append(enc, json.NewEncoder(file))
+	}
+	
+	// Choose which file to store for each keyvalue
+	for _, kv := range keyvalue {
+		index := ihash(kv.Key)%nReduce
+		enc[index].Encode(kv)
+	}
+
+	// Close all files
+	for _, f := range files {
+		f.Close()
 	}
 }
 

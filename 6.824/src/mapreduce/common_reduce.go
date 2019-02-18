@@ -61,6 +61,7 @@ func doReduce(
 	defer file.Close()
 
 	// Read all contents from mrtmp.xxx-m-reduceTaskNumber
+	kvs := make(map[string][]string)
 	for m := 0; m != nMap; m++ {
 		names = append(names,  fmt.Sprintf("mrtmp.%s-%d-%d", jobName, m, reduceTaskNumber))
 		fi, err := os.Open(names[m])
@@ -74,8 +75,11 @@ func doReduce(
 			if err != nil {
 				break
 			}
-			enc.Encode(kv)
+			kvs[kv.Key] = append(kvs[kv.Key], kv.Value)
 		}
 		fi.Close()
+	}
+	for k, v := range kvs {
+		enc.Encode(KeyValue{k, reduceF(k, v)})
 	}
 }
