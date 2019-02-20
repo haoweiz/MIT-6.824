@@ -40,13 +40,16 @@ func schedule(jobName string, mapFiles []string, nReduce int, phase jobPhase, re
 	for i := 0; i != ntasks; i++ {
 		doTaskArgs := DoTaskArgs{jobName, mapFiles[i] , phase, i, n_other}
 		go func(doTaskArgs DoTaskArgs, registerChan chan string) {
-			address := <-registerChan
-			call(address, "Worker.DoTask", doTaskArgs, nil)
+			success := false
+			var address string
+			for success==false {
+				address = <-registerChan
+				success = call(address, "Worker.DoTask", doTaskArgs, nil)
+			}
 			go func() {
 				registerChan <- address
 			}()
 			wg.Done()
-			return
 		}(doTaskArgs, registerChan)
 	}
 	wg.Wait()
